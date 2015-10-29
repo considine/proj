@@ -6,7 +6,7 @@
 #include <vector>
 #include <cmath>
 #include <algorithm>
-
+#include <string.h>
 
 using namespace std;
 
@@ -17,17 +17,49 @@ class bintree {
   // - Assume a flon, one-dimensional world with locations from -180 to 180.
   // - All locations and distances are measured in the same units (degrees).
 private:
-
   typedef struct node
   {
     string name;
     double lon;
     struct node * left;
     struct node * right;
-  } node_t;
+  } node_t;   //Each tree node
   node_t *root; //points to the root
-  int srange[2]; // as defined
-  int brange[2]; 
+  
+//PRIVATE HELPER FUNCTION
+void insert(const std::string& name, double p, node_t* t_node) {
+    // Insert an element with name `name` and location `p`.
+    if (p < t_node -> lon) {   //case that the new longitude is less than root long
+      if (t_node->left != NULL) {
+        insert(name, p, t_node->left); //RECURSE
+      }
+      else {
+        t_node->left = new node_t;
+        t_node->left->name = name;
+        t_node->left->lon = p;
+        t_node->left->left = NULL;        //extend to children here
+        t_node->left->right = NULL;       // because that is where the insertion ocurrs
+      }
+    }
+    else if ( p >= t_node ->lon) {
+      if (t_node->right != NULL) {
+        insert(name, p, t_node->right);
+      }
+      else {
+        
+        t_node->right = new node_t;
+        t_node->right->name = name;
+        t_node->right->lon = p;
+        t_node->right->right = NULL;
+        t_node->right->left = NULL;
+      }
+    }
+
+  }
+
+
+
+
 public:
   // Default constructor
   bintree() {
@@ -38,60 +70,41 @@ public:
   // Copy constructor
   bintree(const bintree &t) {
 
-    //We need an actualy copy method so we can call this recursively
-    if (t.root == NULL) { //in this case we know that the tree is empty
-      root = NULL;
-    } 
-    else {
-      copyTree (this->root, t.root);
-    }
+   copyHelper(root, t.root);
     
   }
 
-  void copyTree(node_t * thisRoot, node_t * sourceRoot) {
+  void copyHelper(node_t * &thisRoot, node_t * copiedRoot) {
     //BASE CASE:
-    if(sourceRoot == NULL) {
+    if(copiedRoot == NULL) {
       thisRoot = NULL;
     }
     else {
       thisRoot = new node_t;
-      thisRoot->lon = sourceRoot->lon;
-      thisRoot->name = sourceRoot->name;
-      copyTree(thisRoot->left, sourceRoot->left);
-      copyTree(thisRoot->right, sourceRoot->right);
+      thisRoot->lon = copiedRoot->lon;
+      thisRoot->name = copiedRoot->name;
+      copyHelper(thisRoot->left, copiedRoot->left);
+      copyHelper(thisRoot->right, copiedRoot->right);
     }
   }
 
-  void search () {} //the actual searching function
-  void within_radius (double longit, double range, vector<string> &result) { //self-explanatory
-    //search function
-    node_t * temp; // for traversals;
-    temp = root;
-    while (temp != NULL) { //as long as there are more spots
-      if ( abs(temp->lon - longit) < range) {
-        result.insert(result.begin(), temp->name);  //save the name 
-        //need to check both right and left node in this case:
-      }
-      if (temp->lon < longit) { //in this case we need to move to the right
-
-      }
-    }
-  }
+  
   // Destructor
   ~bintree() {
     remove1(root); //#de
   }
-  void remove1(node* root) {
-    if (root == NULL) return; //base case
-    remove1 (root->left);
-    remove1 (root->right);
-    delete root;
+  void remove1(node* t_node) {
+    if (t_node == NULL) return; //base case
+    remove1 (t_node->left);
+    remove1 (t_node->right);
+    delete t_node;
   }
 
   // Copy assignment is implemented using the copy-swap idiom
   // https://en.wikibooks.org/wiki/More_C%2B%2B_Idioms/Copy-and-swap
   friend void swap(bintree &t1, bintree &t2) {
     using std::swap;
+    swap(t1.root, t2.root);
     // Swap all data members here, e.g.,
     // swap(t1.foo, t2.foo);
     // Pointers should be swapped -- but not the things they point to.
@@ -102,38 +115,21 @@ public:
     return *this;
   }
 
+
   void insert(const std::string& name, double p) {
     // Insert an element with name `name` and location `p`.
-
-    node_t *t = new node_t; //create a new node
-    node_t * parent;
-    t->name = name;
-    t->lon = p;       //set the data attributes
-    t->left = NULL; t->right =NULL; //set the children to null for now
-
-    //need to know if the tree is new or not!
-    if (isEmpty()) root = t; //set the root to the value we just creaeted
+    if (root != NULL) {
+      insert(name, p, root); //call helper function defined inprivate
+    }
     else {
-      //Insert alon the tree
-      //first must find the parent
-      node_t * current; 
-      current = root; // the starting point
-      while (current) {  //traverse down tree til we find the proper spot
-        parent = current;  //to store previous node
-        if (t->lon > current->lon) current = current->right; //comparing 
-        else current = current->left;
-      }
- 
-      if(t->lon < parent->lon) {
-        parent->left=t;
-        parent->right = t;
-      }
-
-      else 
-        parent->right=t;
-        parent->left=t;
+          root = new node_t;
+          root-> name = name;
+          root-> lon = p;
+          root-> left = NULL;
+          root -> right = NULL;
 
     }
+   
 
   }
   bool isEmpty() {
@@ -141,11 +137,17 @@ public:
   }
 
   void within_radius(double p, double r, std::vector<std::string> &result) const {
-    // Search for elements within the range `p` plus or minus `r`.
-    // Clears `result` and puts the elements in `result`.
-    // Postcondition: `result` contains all (and only) elements of the
-    // tree, in any order, that lie within the range `p` plus or minus
-    // `r`.
+    result.clear();
+    recurse_function(p, r, root, result);
+  }
+
+
+  void recurse_function (double p, double r, node_t *t, vector<string> &result) const{
+    if ((t->lon <= p+r) && (t->lon >= p-r)) {
+      result.push_back(t->name);
+    }
+    if (t->left !=NULL) recurse_function (p, r, t->left, result);  //recurse to the t
+    if (t->right !=NULL) recurse_function (p, r, t->right, result); //two child nodes
   }
 };
 
