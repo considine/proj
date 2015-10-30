@@ -54,6 +54,7 @@ int main (int argc, char *argv[]) {
   cout << "reading ndfood.txt" << endl;
   quadtree qt;
   read_file("ndfood.txt", qt);
+  cout <<"hi"<<endl;
   vector<string> result;
 
   cout << "Testing within_radius" << endl;
